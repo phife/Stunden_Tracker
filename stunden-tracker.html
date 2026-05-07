@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Stunden Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg:          #0e0e0d;
+  --surface:     #161614;
+  --surface2:    #1e1e1b;
+  --surface3:    #252521;
+  --border:      rgba(255,255,255,0.06);
+  --border-med:  rgba(255,255,255,0.11);
+  --text:        #e9e6df;
+  --text-muted:  #7a7870;
+  --text-faint:  #4a4845;
+  --green:       #3dbf80;
+  --green-bg:    rgba(61,191,128,0.10);
+  --green-dim:   rgba(61,191,128,0.06);
+  --red:         #e05c5c;
+  --red-bg:      rgba(224,92,92,0.10);
+  --amber:       #d4a030;
+  --amber-bg:    rgba(212,160,48,0.10);
+  --radius:      10px;
+  --radius-lg:   14px;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { background: var(--bg); }
+
+body {
+  font-family: 'DM Sans', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+.page {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 2.5rem 1.5rem 5rem;
+}
+
+/* ── Header ─────────────────────────────────────────── */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.75rem;
+  gap: 1rem;
+}
+.header h1 {
+  font-size: 20px;
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  color: var(--text);
+}
+.header p {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 3px;
+  font-family: 'DM Mono', monospace;
+}
+
+.mode-btn {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface2);
+  border: 1px solid var(--border-med);
+  border-radius: 99px;
+  padding: 6px 14px 6px 10px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.mode-btn:hover { background: var(--surface3); color: var(--text); }
+.mode-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background 0.25s;
+  flex-shrink: 0;
+}
+.mode-dot.on { background: var(--green); box-shadow: 0 0 6px rgba(61,191,128,0.5); }
+
+/* ── Sync bar ───────────────────────────────────────── */
+.sync-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 1.25rem;
+}
+.sync-led {
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: background 0.3s;
+}
+.sync-led.ok  { background: var(--green); }
+.sync-led.err { background: var(--red); }
+.sync-led.busy { background: var(--amber); animation: blink 0.9s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Overview card ──────────────────────────────────── */
+.overview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem 1.5rem 1.25rem;
+  margin-bottom: 1rem;
+}
+.ov-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.1rem;
+  gap: 1rem;
+}
+.ov-number {
+  font-family: 'DM Mono', monospace;
+  font-size: 40px;
+  font-weight: 400;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--text);
+}
+.ov-sublabel {
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-top: 5px;
+  font-family: 'DM Mono', monospace;
+}
+
+.pill {
+  font-size: 11px;
+  font-weight: 500;
+  padding: 4px 10px;
+  border-radius: 99px;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+.pill-red   { background: var(--red-bg);   color: var(--red);   border: 1px solid rgba(224,92,92,0.18); }
+.pill-green { background: var(--green-bg); color: var(--green); border: 1px solid rgba(61,191,128,0.18); }
+.pill-amber { background: var(--amber-bg); color: var(--amber); border: 1px solid rgba(212,160,48,0.18); }
+
+.prog-track {
+  background: var(--surface3);
+  border-radius: 99px;
+  height: 3px;
+  overflow: hidden;
+  margin-bottom: 1.25rem;
+}
+.prog-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s cubic-bezier(.4,0,.2,1), background 0.4s;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+.stat {
+  background: var(--surface2);
+  border-radius: 8px;
+  padding: 9px 10px;
+  text-align: center;
+}
+.stat-val {
+  font-family: 'DM Mono', monospace;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+}
+.stat-key {
+  font-size: 10px;
+  color: var(--text-faint);
+  margin-top: 2px;
+  letter-spacing: 0.03em;
+}
+
+/* ── Password card ──────────────────────────────────── */
+.pw-card {
+  background: var(--surface2);
+  border: 1px solid var(--border-med);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1rem;
+}
+.pw-title { font-size: 13px; color: var(--text-muted); margin-bottom: .75rem; }
+.pw-row { display: flex; gap: 8px; }
+.pw-err { font-size: 12px; color: var(--red); margin-top: 6px; display: none; font-family: 'DM Mono', monospace; }
+
+/* ── Form inputs ────────────────────────────────────── */
+input[type="password"],
+input[type="date"],
+input[type="number"],
+input[type="text"] {
+  background: var(--surface3);
+  border: 1px solid var(--border-med);
+  border-radius: var(--radius);
+  padding: 0 12px;
+  height: 36px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  -webkit-appearance: none;
+  color-scheme: dark;
+}
+input:focus {
+  border-color: rgba(255,255,255,0.2);
+  box-shadow: 0 0 0 3px rgba(255,255,255,0.04);
+}
+input::placeholder { color: var(--text-faint); }
+
+/* ── Add form card ──────────────────────────────────── */
+.add-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1.1rem 1.4rem;
+  margin-bottom: 1rem;
+}
+.form-row { display: flex; gap: 8px; align-items: flex-end; }
+.field { display: flex; flex-direction: column; gap: 5px; flex: 1; }
+.field label {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-faint);
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-family: 'DM Mono', monospace;
+}
+
+/* ── Buttons ────────────────────────────────────────── */
+button.primary {
+  height: 36px;
+  padding: 0 18px;
+  background: var(--text);
+  color: var(--bg);
+  border: none;
+  border-radius: var(--radius);
+  font-family: 'DM Sans', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: opacity 0.15s, transform 0.1s;
+}
+button.primary:hover { opacity: 0.85; }
+button.primary:active { opacity: 0.7; transform: scale(0.98); }
+
+button.sec {
+  height: 30px;
+  padding: 0 12px;
+  background: var(--surface3);
+  color: var(--text-muted);
+  border: 1px solid var(--border-med);
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  white-space: nowrap;
+}
+button.sec:hover { background: var(--surface2); color: var(--text); }
+
+button.ghost {
+  height: 24px;
+  padding: 0 7px;
+  background: none;
+  color: var(--text-faint);
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+  line-height: 1;
+}
+button.ghost:hover        { background: var(--surface3); color: var(--text-muted); }
+button.ghost.del:hover    { background: var(--red-bg);   color: var(--red); }
+button.ghost.edit-g:hover { background: var(--green-dim); color: var(--green); }
+
+/* ── Toolbar ────────────────────────────────────────── */
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+.toolbar-lbl { font-size: 11px; color: var(--text-faint); font-family: 'DM Mono', monospace; }
+
+select {
+  height: 30px;
+  padding: 0 28px 0 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border-med);
+  border-radius: 8px;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text-muted);
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.4' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+  transition: border-color 0.12s;
+}
+select:focus { border-color: rgba(255,255,255,0.18); }
+
+/* ── Section label ──────────────────────────────────── */
+.section-lbl {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 8px;
+}
+
+/* ── KW blocks ──────────────────────────────────────── */
+.kw-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 6px;
+  overflow: hidden;
+  transition: border-color 0.15s;
+}
+.kw-block:hover { border-color: var(--border-med); }
+
+.kw-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+.kw-head:hover { background: var(--surface2); }
+
+.kw-chevron {
+  width: 14px; height: 14px;
+  color: var(--text-faint);
+  transition: transform 0.2s cubic-bezier(.4,0,.2,1);
+  flex-shrink: 0;
+}
+.kw-chevron.open { transform: rotate(90deg); }
+
+.kw-name {
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text);
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+}
+.kw-frac {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  color: var(--text-faint);
+  margin-right: 8px;
+}
+
+.kw-body {
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.kw-body.open { display: block; }
+
+.entry {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.entry:last-child { border-bottom: none; }
+.entry-date {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex: 1;
+  font-family: 'DM Mono', monospace;
+}
+.entry-hrs {
+  font-family: 'DM Mono', monospace;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+  min-width: 48px;
+  text-align: right;
+}
+.entry-actions { display: flex; gap: 2px; }
+
+.edit-row {
+  display: none;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px 9px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+}
+.edit-row.open { display: flex; }
+.edit-row input { height: 28px; font-size: 12px; }
+.edit-row input[type="date"]   { flex: 1; }
+.edit-row input[type="number"] { width: 80px; }
+
+/* ── States ─────────────────────────────────────────── */
+.loading {
+  text-align: center;
+  padding: 4rem 0;
+  color: var(--text-faint);
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+}
+.empty {
+  text-align: center;
+  padding: 3rem 0;
+  color: var(--text-faint);
+  font-size: 13px;
+  font-family: 'DM Mono', monospace;
+}
+
+@media (max-width: 480px) {
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  .form-row   { flex-wrap: wrap; }
+  .page       { padding: 1.5rem 1rem 4rem; }
+  .ov-number  { font-size: 32px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <div>
+      <h1>Stunden Tracker</h1>
+      <p>12,5h / Woche</p>
+    </div>
+    <button class="mode-btn" id="mode-btn" onclick="toggleMode()">
+      <div class="mode-dot" id="mode-dot"></div>
+      <span id="mode-lbl">Ansehen</span>
+    </button>
+  </div>
+
+  <div class="sync-bar">
+    <div class="sync-led" id="sync-led"></div>
+    <span id="sync-txt">Verbinde…</span>
+  </div>
+
+  <div class="loading" id="loading">Daten werden geladen…</div>
+
+  <div id="app" style="display:none;">
+
+    <!-- Overview -->
+    <div class="overview">
+      <div class="ov-top">
+        <div>
+          <div class="ov-number" id="ov-num">—</div>
+          <div class="ov-sublabel" id="ov-sub">—</div>
+        </div>
+        <span class="pill pill-amber" id="ov-pill">—</span>
+      </div>
+      <div class="prog-track">
+        <div class="prog-fill" id="ov-bar" style="width:0%;"></div>
+      </div>
+      <div class="stats-grid">
+        <div class="stat"><div class="stat-val" id="s-done">—</div><div class="stat-key">Geleistet</div></div>
+        <div class="stat"><div class="stat-val" id="s-tgt">—</div><div class="stat-key">Ziel</div></div>
+        <div class="stat"><div class="stat-val" id="s-wks">—</div><div class="stat-key">Wochen</div></div>
+        <div class="stat"><div class="stat-val" id="s-ent">—</div><div class="stat-key">Einträge</div></div>
+      </div>
+    </div>
+
+    <!-- PW -->
+    <div class="pw-card" id="pw-card" style="display:none;">
+      <div class="pw-title">Passwort für Bearbeiten</div>
+      <div class="pw-row">
+        <input type="password" id="pw-inp" placeholder="Passwort…" onkeydown="if(event.key==='Enter')checkPw()"/>
+        <button class="primary" onclick="checkPw()">OK</button>
+      </div>
+      <div class="pw-err" id="pw-err">Falsches Passwort.</div>
+    </div>
+
+    <!-- Add form -->
+    <div class="add-card" id="add-card" style="display:none;">
+      <div class="form-row">
+        <div class="field"><label>Datum</label><input type="date" id="inp-date"/></div>
+        <div class="field" style="max-width:115px;"><label>Stunden</label><input type="number" id="inp-hrs" min="0.25" max="24" step="0.25" placeholder="6,5"/></div>
+        <button class="primary" onclick="addEntry()">+ Eintragen</button>
+      </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="toolbar">
+      <span class="toolbar-lbl">Monat</span>
+      <select id="filter-month" onchange="render()">
+        <option value="">Alle</option>
+      </select>
+    </div>
+
+    <div class="section-lbl">Einträge nach KW</div>
+    <div id="kw-list"></div>
+    <div class="empty" id="empty" style="display:none;">Noch keine Einträge.</div>
+
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════════════════
+//  KONFIGURATION — nur diese drei Zeilen anpassen
+// ════════════════════════════════════════════════════════════════
+const API_KEY       = '$2a$10$YrnNMZyVrMJzJi89uPIP4.LkPPFm3uiUwkg374PcYSNTdXHYedABG';   // JSONbin Master Key
+const BIN_ID        = '69fc55dfadc21f119a66ce06';   // beim 1. Speichern auto-erstellt
+const EDIT_PASSWORD = 'stunden2025';          // Passwort für den Edit-Modus
+// ════════════════════════════════════════════════════════════════
+//  ANLEITUNG:
+//  1. https://jsonbin.io → kostenlos registrieren
+//  2. Dashboard → API Keys → Master Key kopieren → API_KEY eintragen
+//  3. Datei speichern & im Browser öffnen → einen Eintrag hinzufügen
+//     → in der Browser-Konsole (F12) erscheint deine Bin-ID
+//  4. Bin-ID als BIN_ID eintragen → fertig!
+// ════════════════════════════════════════════════════════════════
+
+const TARGET = 12.5;
+let entries  = [];
+let editMode = false;
+let openKWs  = {};
+let editId   = null;
+let saving   = false;
+
+const $ = id => document.getElementById(id);
+
+function sync(state, msg) {
+  $('sync-led').className = 'sync-led ' + state;
+  $('sync-txt').textContent = msg;
+}
+
+async function load() {
+  if (BIN_ID === 'DEINE_BIN_ID_HIER') {
+    sync('err', 'Bin-ID fehlt — Anleitung beachten');
+    $('loading').style.display = 'none';
+    $('app').style.display = 'block';
+    render(); return;
+  }
+  sync('busy', 'Lädt…');
+  try {
+    const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+      headers: { 'X-Master-Key': API_KEY }
+    });
+    if (!r.ok) throw new Error(r.status);
+    entries = (await r.json()).record.entries || [];
+    sync('ok', 'Aktuell');
+  } catch(e) {
+    sync('err', 'Ladefehler — lokale Kopie');
+    entries = JSON.parse(localStorage.getItem('st_fb') || '[]');
+  }
+  $('loading').style.display = 'none';
+  $('app').style.display = 'block';
+  buildMonthFilter(); render();
+}
+
+async function persist() {
+  if (saving) return; saving = true;
+  sync('busy', 'Speichert…');
+  localStorage.setItem('st_fb', JSON.stringify(entries));
+  if (BIN_ID === 'DEINE_BIN_ID_HIER') {
+    try {
+      const r = await fetch('https://api.jsonbin.io/v3/b', {
+        method: 'POST',
+        headers: { 'Content-Type':'application/json','X-Master-Key':API_KEY,'X-Bin-Name':'Stunden Tracker' },
+        body: JSON.stringify({ entries })
+      });
+      const id = (await r.json()).metadata?.id;
+      if (id) {
+        console.log('%c✓ Neue Bin erstellt! Deine BIN_ID:', 'color:#3dbf80;font-weight:bold', id);
+        sync('ok', 'Erstellt — BIN_ID in Konsole!');
+      }
+    } catch(e) { sync('err', 'Erstellungsfehler'); }
+    saving = false; return;
+  }
+  try {
+    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+      method: 'PUT',
+      headers: { 'Content-Type':'application/json','X-Master-Key':API_KEY },
+      body: JSON.stringify({ entries })
+    });
+    sync('ok', 'Gespeichert');
+  } catch(e) { sync('err', 'Speicherfehler'); }
+  saving = false;
+}
+
+/* ── KW helpers ── */
+function kwOf(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const j = new Date(d.getFullYear(), 0, 4);
+  const s = new Date(j); s.setDate(j.getDate() - ((j.getDay()+6)%7));
+  let kw = Math.floor((d - s) / 604800000) + 1, yr = d.getFullYear();
+  if (kw < 1) {
+    const d2 = new Date(yr-1,11,28); const s2 = new Date(d2);
+    s2.setDate(d2.getDate()-((d2.getDay()+6)%7));
+    kw = Math.floor((d-s2)/604800000)+1; yr--;
+  }
+  return `${yr}-${String(kw).padStart(2,'0')}`;
+}
+function fh(n) { return n.toFixed(1).replace('.',',') + 'h'; }
+function fhrs(n) { return (n%1===0?n:parseFloat(n.toFixed(2))).toString().replace('.',',') + 'h'; }
+function today() { return new Date().toISOString().slice(0,10); }
+function fdate(s) {
+  return new Date(s+'T00:00:00').toLocaleDateString('de-DE',{weekday:'short',day:'2-digit',month:'2-digit',year:'2-digit'});
+}
+function monthOf(s) { return s.slice(0,7); }
+
+function buildMonthFilter() {
+  const months = [...new Set(entries.map(e=>monthOf(e.date)))].sort().reverse();
+  const sel = $('filter-month'); const cur = sel.value;
+  while(sel.options.length>1) sel.remove(1);
+  months.forEach(m => {
+    const [y,mo] = m.split('-');
+    const lbl = new Date(y,+mo-1,1).toLocaleDateString('de-DE',{month:'long',year:'numeric'});
+    sel.add(new Option(lbl,m));
+  });
+  if(cur) sel.value = cur;
+}
+
+function filtered() {
+  const mf = $('filter-month').value;
+  return mf ? entries.filter(e=>monthOf(e.date)===mf) : entries;
+}
+
+function render() {
+  const allDone   = entries.reduce((s,e)=>s+e.hrs,0);
+  const allKWs    = new Set(entries.map(e=>kwOf(e.date)));
+  const tgt       = allKWs.size * TARGET;
+  const rem       = Math.max(0, tgt - allDone);
+  const over      = allDone > tgt && tgt > 0;
+  const ok        = !over && tgt > 0 && allDone >= tgt;
+  const pct       = tgt > 0 ? Math.min(100,(allDone/tgt)*100) : 0;
+
+  const num = $('ov-num'), sub = $('ov-sub'), pill = $('ov-pill'), bar = $('ov-bar');
+  if (!allKWs.size) {
+    num.textContent = '—'; sub.textContent = 'Noch keine Einträge';
+    pill.textContent = 'Kein Ziel'; pill.className = 'pill pill-amber';
+    bar.style.cssText = 'width:0%';
+  } else if (over) {
+    num.textContent = '+' + (allDone-tgt).toFixed(1).replace('.',',');
+    sub.textContent = 'Stunden über Ziel';
+    pill.textContent = 'Überschritten'; pill.className = 'pill pill-red';
+    bar.style.cssText = 'width:100%;background:var(--red)';
+  } else if (ok) {
+    num.textContent = '0,0'; sub.textContent = 'ausgeglichen';
+    pill.textContent = 'Ausgeglichen'; pill.className = 'pill pill-green';
+    bar.style.cssText = 'width:100%;background:var(--green)';
+  } else {
+    num.textContent = rem.toFixed(1).replace('.',',');
+    sub.textContent = 'Stunden fehlen noch';
+    pill.textContent = rem.toFixed(1).replace('.',',') + 'h fehlen';
+    pill.className = 'pill pill-red';
+    bar.style.cssText = `width:${pct.toFixed(1)}%;background:${pct>65?'var(--amber)':'var(--red)'}`;
+  }
+
+  $('s-done').textContent = fh(allDone);
+  $('s-tgt').textContent  = fh(tgt);
+  $('s-wks').textContent  = allKWs.size;
+  $('s-ent').textContent  = entries.length;
+
+  const vis = filtered();
+  const kwMap = {};
+  vis.forEach(e => { const k=kwOf(e.date); (kwMap[k]=kwMap[k]||[]).push(e); });
+  const keys = Object.keys(kwMap).sort((a,b)=>b.localeCompare(a));
+  const list = $('kw-list'), emp = $('empty');
+  list.innerHTML = '';
+
+  if (!keys.length) { emp.style.display='block'; return; }
+  emp.style.display = 'none';
+
+  keys.forEach(key => {
+    const [yr,kwStr] = key.split('-');
+    const we   = kwMap[key].sort((a,b)=>b.date.localeCompare(a.date));
+    const wtot = we.reduce((s,e)=>s+e.hrs,0);
+    const wrem = TARGET - wtot;
+    const wo   = wtot > TARGET, wok = wtot >= TARGET;
+    const pt   = wo ? '+' + (wtot-TARGET).toFixed(1).replace('.',',')+'h'
+                    : wok ? 'OK'
+                    : wrem.toFixed(1).replace('.',',')+'h fehlen';
+    const pc   = wo ? 'pill-red' : wok ? 'pill-green' : 'pill-red';
+    const isOpen = openKWs[key] !== false;
+
+    const blk = document.createElement('div');
+    blk.className = 'kw-block';
+
+    const hd = document.createElement('div');
+    hd.className = 'kw-head';
+    hd.innerHTML = `
+      <svg class="kw-chevron${isOpen?' open':''}" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 4l4 4-4 4"/>
+      </svg>
+      <span class="kw-name">KW ${parseInt(kwStr)} · ${yr}</span>
+      <span class="kw-frac">${fh(wtot)} / ${fh(TARGET)}</span>
+      <span class="pill ${pc}" style="font-size:10px;padding:3px 8px;">${pt}</span>`;
+    hd.onclick = () => { openKWs[key]=!isOpen; render(); };
+
+    const bd = document.createElement('div');
+    bd.className = 'kw-body' + (isOpen?' open':'');
+
+    we.forEach(e => {
+      const wr = document.createElement('div');
+      const btns = editMode
+        ? `<div class="entry-actions">
+            <button class="ghost edit-g" onclick="openEdit('${e.id}')" title="Bearbeiten">✎</button>
+            <button class="ghost del"    onclick="delEntry('${e.id}')"  title="Löschen">✕</button>
+           </div>`
+        : '';
+      wr.innerHTML = `
+        <div class="entry" id="en-${e.id}">
+          <span class="entry-date">${fdate(e.date)}</span>
+          <span class="entry-hrs">${fhrs(e.hrs)}</span>
+          ${btns}
+        </div>
+        <div class="edit-row${editId===e.id?' open':''}" id="er-${e.id}">
+          <input type="date"   id="ed-d-${e.id}" value="${e.date}"/>
+          <input type="number" id="ed-h-${e.id}" value="${e.hrs}" min=".25" max="24" step=".25"/>
+          <button class="sec" onclick="saveEdit('${e.id}')">Speichern</button>
+          <button class="sec" onclick="closeEdit()">Abbrechen</button>
+        </div>`;
+      bd.appendChild(wr);
+    });
+
+    blk.appendChild(hd); blk.appendChild(bd); list.appendChild(blk);
+  });
+}
+
+function toggleMode() {
+  if (editMode) {
+    editMode=false; editId=null;
+    $('pw-card').style.display='none';
+    $('add-card').style.display='none';
+    $('mode-dot').className='mode-dot';
+    $('mode-lbl').textContent='Ansehen';
+    render();
+  } else {
+    $('pw-card').style.display='block';
+    $('pw-inp').value=''; $('pw-err').style.display='none';
+    setTimeout(()=>$('pw-inp').focus(),40);
+  }
+}
+
+function checkPw() {
+  if ($('pw-inp').value===EDIT_PASSWORD) {
+    editMode=true;
+    $('pw-card').style.display='none';
+    $('add-card').style.display='block';
+    $('mode-dot').className='mode-dot on';
+    $('mode-lbl').textContent='Bearbeiten';
+    $('inp-date').value=today();
+    render();
+  } else {
+    $('pw-err').style.display='block';
+  }
+}
+
+async function addEntry() {
+  const dv=$('inp-date').value, hv=parseFloat($('inp-hrs').value.replace(',','.'));
+  if(!dv||isNaN(hv)||hv<=0){
+    $('inp-hrs').style.borderColor='var(--red)';
+    setTimeout(()=>$('inp-hrs').style.borderColor='',1500); return;
+  }
+  entries.push({id:Date.now().toString(),date:dv,hrs:hv});
+  await persist();
+  $('inp-hrs').value=''; $('inp-date').value=today();
+  buildMonthFilter(); render();
+}
+
+async function delEntry(id) {
+  entries=entries.filter(e=>e.id!==id);
+  if(editId===id) editId=null;
+  await persist(); buildMonthFilter(); render();
+}
+function openEdit(id) { editId=id; render(); }
+function closeEdit()  { editId=null; render(); }
+async function saveEdit(id) {
+  const dv=$('ed-d-'+id).value, hv=parseFloat($('ed-h-'+id).value.replace(',','.'));
+  if(!dv||isNaN(hv)||hv<=0) return;
+  const e=entries.find(x=>x.id===id);
+  if(e){e.date=dv;e.hrs=hv;}
+  editId=null; await persist(); buildMonthFilter(); render();
+}
+
+load();
+</script>
+</body>
+</html>
