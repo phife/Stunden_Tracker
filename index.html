@@ -539,8 +539,8 @@ select:focus { border-color: rgba(255,255,255,0.18); }
 // ════════════════════════════════════════════════════════════════
 //  KONFIGURATION — nur diese drei Zeilen anpassen
 // ════════════════════════════════════════════════════════════════
-const API_KEY       = '$2a$10$YrnNMZyVrMJzJi89uPIP4.LkPPFm3uiUwkg374PcYSNTdXHYedABG';   // JSONbin Master Key
-const BIN_ID        = '69fc55dfadc21f119a66ce06';   // beim 1. Speichern auto-erstellt
+const API_KEY       = 'DEIN_API_KEY_HIER';   // JSONbin Master Key
+const BIN_ID        = 'DEINE_BIN_ID_HIER';   // beim 1. Speichern auto-erstellt
 const EDIT_PASSWORD = 'stunden2025';          // Passwort für den Edit-Modus
 // ════════════════════════════════════════════════════════════════
 //  ANLEITUNG:
@@ -565,23 +565,43 @@ function sync(state, msg) {
   $('sync-txt').textContent = msg;
 }
 
+async function apiFetch(url, opts, retries=2) {
+  for (let i=0; i<=retries; i++) {
+    try {
+      const r = await fetch(url, opts);
+      if (!r.ok) throw new Error('HTTP '+r.status);
+      return await r.json();
+    } catch(e) {
+      if (i===retries) throw e;
+      await new Promise(r=>setTimeout(r, 800*(i+1)));
+    }
+  }
+}
+
 async function load() {
-  if (BIN_ID === 'DEINE_BIN_ID_HIER') {
-    sync('err', 'Bin-ID fehlt — Anleitung beachten');
+  if (API_KEY === 'DEIN_API_KEY_HIER') {
+    sync('err', 'API-Key fehlt — siehe Anleitung im Code');
     $('loading').style.display = 'none';
     $('app').style.display = 'block';
     render(); return;
   }
+  if (BIN_ID === 'DEINE_BIN_ID_HIER') {
+    sync('err', 'Bin-ID fehlt — erst einen Eintrag speichern');
+    $('loading').style.display = 'none';
+    $('app').style.display = 'block';
+    entries = JSON.parse(localStorage.getItem('st_fb') || '[]');
+    buildMonthFilter(); render(); return;
+  }
   sync('busy', 'Lädt…');
   try {
-    const r = await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
+    const json = await apiFetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
       headers: { 'X-Master-Key': API_KEY }
     });
-    if (!r.ok) throw new Error(r.status);
-    entries = (await r.json()).record.entries || [];
+    entries = json.record.entries || [];
+    localStorage.setItem('st_fb', JSON.stringify(entries));
     sync('ok', 'Aktuell');
   } catch(e) {
-    sync('err', 'Ladefehler — lokale Kopie');
+    sync('err', 'Offline — zeige lokale Kopie');
     entries = JSON.parse(localStorage.getItem('st_fb') || '[]');
   }
   $('loading').style.display = 'none';
@@ -593,43 +613,55 @@ async function persist() {
   if (saving) return; saving = true;
   sync('busy', 'Speichert…');
   localStorage.setItem('st_fb', JSON.stringify(entries));
+
   if (BIN_ID === 'DEINE_BIN_ID_HIER') {
     try {
-      const r = await fetch('https://api.jsonbin.io/v3/b', {
+      const json = await apiFetch('https://api.jsonbin.io/v3/b', {
         method: 'POST',
         headers: { 'Content-Type':'application/json','X-Master-Key':API_KEY,'X-Bin-Name':'Stunden Tracker' },
         body: JSON.stringify({ entries })
       });
-      const id = (await r.json()).metadata?.id;
+      const id = json.metadata?.id;
       if (id) {
-        console.log('%c✓ Neue Bin erstellt! Deine BIN_ID:', 'color:#3dbf80;font-weight:bold', id);
-        sync('ok', 'Erstellt — BIN_ID in Konsole!');
+        sync('ok', 'Erstellt! BIN_ID: ' + id);
+        // Show ID prominently so user can copy it
+        const bar = $('sync-bar');
+        bar.innerHTML = `<div class="sync-led ok"></div>
+          <span style="color:var(--green);">✓ Bin erstellt! BIN_ID kopieren:</span>
+          <code style="background:var(--surface3);padding:2px 8px;border-radius:6px;font-size:11px;color:var(--text);cursor:pointer;user-select:all;" onclick="this.style.outline='1px solid var(--green)';navigator.clipboard?.writeText('${id}')" title="Klicken zum Kopieren">${id}</code>`;
+        console.log('%c✓ BIN_ID:', 'color:#3dbf80;font-weight:bold', id);
       }
-    } catch(e) { sync('err', 'Erstellungsfehler'); }
+    } catch(e) {
+      sync('err', 'Fehler: ' + e.message);
+      console.error('[Tracker] Erstellen fehlgeschlagen:', e);
+    }
     saving = false; return;
   }
+
   try {
-    await fetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
+    await apiFetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
       method: 'PUT',
       headers: { 'Content-Type':'application/json','X-Master-Key':API_KEY },
       body: JSON.stringify({ entries })
     });
-    sync('ok', 'Gespeichert');
-  } catch(e) { sync('err', 'Speicherfehler'); }
+    sync('ok', 'Gespeichert · ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
+  } catch(e) {
+    sync('err', 'Speicherfehler — lokal gesichert');
+    console.error('[Tracker] Speichern fehlgeschlagen:', e);
+  }
   saving = false;
 }
 
 /* ── KW helpers ── */
 function kwOf(dateStr) {
-  const d = new Date(dateStr + 'T00:00:00');
-  const j = new Date(d.getFullYear(), 0, 4);
-  const s = new Date(j); s.setDate(j.getDate() - ((j.getDay()+6)%7));
-  let kw = Math.floor((d - s) / 604800000) + 1, yr = d.getFullYear();
-  if (kw < 1) {
-    const d2 = new Date(yr-1,11,28); const s2 = new Date(d2);
-    s2.setDate(d2.getDate()-((d2.getDay()+6)%7));
-    kw = Math.floor((d-s2)/604800000)+1; yr--;
-  }
+  // ISO week via UTC — avoids DST off-by-one errors
+  const [y, m, day] = dateStr.split('-').map(Number);
+  const d = Date.UTC(y, m - 1, day);
+  const dow = new Date(d).getUTCDay() || 7; // Mon=1 … Sun=7
+  const thu = d + (4 - dow) * 86400000;    // Thursday of same ISO week
+  const yr  = new Date(thu).getUTCFullYear();
+  const yearStart = Date.UTC(yr, 0, 1);
+  const kw  = Math.ceil(((thu - yearStart) / 86400000 + 1) / 7);
   return `${yr}-${String(kw).padStart(2,'0')}`;
 }
 function fh(n) { return n.toFixed(1).replace('.',',') + 'h'; }
