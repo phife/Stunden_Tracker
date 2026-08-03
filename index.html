@@ -539,8 +539,8 @@ select:focus { border-color: rgba(255,255,255,0.18); }
 // ════════════════════════════════════════════════════════════════
 //  KONFIGURATION — nur diese drei Zeilen anpassen
 // ════════════════════════════════════════════════════════════════
-const API_KEY       = '$2a$10$YrnNMZyVrMJzJi89uPIP4.LkPPFm3uiUwkg374PcYSNTdXHYedABG';   // JSONbin Master Key
-const BIN_ID        = '69fc55dfadc21f119a66ce06';   // beim 1. Speichern auto-erstellt
+const API_KEY       = '$2a$10$YrnNMZyVrMJzJi89uPIP4.LkPPFm3uiUwkg374PcYSNTdXHYedABG';
+const BIN_ID        = '69fc55dfadc21f119a66ce06';
 const EDIT_PASSWORD = 'stunden2025';          // Passwort für den Edit-Modus
 // ════════════════════════════════════════════════════════════════
 //  ANLEITUNG:
@@ -706,8 +706,8 @@ function render() {
   } else if (over) {
     num.textContent = '+' + (allDone-tgt).toFixed(1).replace('.',',');
     sub.textContent = 'Stunden über Ziel';
-    pill.textContent = 'Überschritten'; pill.className = 'pill pill-red';
-    bar.style.cssText = 'width:100%;background:var(--red)';
+    pill.textContent = 'Überschritten'; pill.className = 'pill pill-green';
+    bar.style.cssText = 'width:100%;background:var(--green)';
   } else if (ok) {
     num.textContent = '0,0'; sub.textContent = 'ausgeglichen';
     pill.textContent = 'Ausgeglichen'; pill.className = 'pill pill-green';
@@ -744,7 +744,7 @@ function render() {
     const pt   = wo ? '+' + (wtot-TARGET).toFixed(1).replace('.',',')+'h'
                     : wok ? 'OK'
                     : wrem.toFixed(1).replace('.',',')+'h fehlen';
-    const pc   = wo ? 'pill-red' : wok ? 'pill-green' : 'pill-red';
+    const pc   = wo ? 'pill-green' : wok ? 'pill-green' : 'pill-red';
     const isOpen = openKWs[key] !== false;
 
     const blk = document.createElement('div');
