@@ -524,7 +524,7 @@ select:focus { border-color: rgba(255,255,255,0.18); }
   <div class="header">
     <div>
       <h1>Stunden Tracker</h1>
-      <p>12,5h / Woche</p>
+      <p>53,8h / Monat · 12,5h / Woche</p>
     </div>
     <button class="mode-btn" id="mode-btn" onclick="toggleMode()">
       <div class="mode-dot" id="mode-dot"></div>
@@ -556,7 +556,7 @@ select:focus { border-color: rgba(255,255,255,0.18); }
       <div class="stats-grid">
         <div class="stat"><div class="stat-val" id="s-done">—</div><div class="stat-key">Geleistet</div></div>
         <div class="stat"><div class="stat-val" id="s-tgt">—</div><div class="stat-key">Ziel</div></div>
-        <div class="stat"><div class="stat-val" id="s-wks">—</div><div class="stat-key">Wochen</div></div>
+        <div class="stat"><div class="stat-val" id="s-wks">—</div><div class="stat-key">Monate</div></div>
         <div class="stat"><div class="stat-val" id="s-ent">—</div><div class="stat-key">Einträge</div></div>
       </div>
     </div>
@@ -753,31 +753,33 @@ function filtered() {
 }
 
 function render() {
-  const allDone   = entries.reduce((s,e)=>s+e.hrs,0);
-  const allKWs    = new Set(entries.map(e=>kwOf(e.date)));
-  const tgt       = allKWs.size * TARGET;
-  const rem       = Math.max(0, tgt - allDone);
-  const over      = allDone > tgt && tgt > 0;
-  const ok        = !over && tgt > 0 && allDone >= tgt;
-  const pct       = tgt > 0 ? Math.min(100,(allDone/tgt)*100) : 0;
+  const MONTH_TGT  = 53.846; // 1400 / 26
+  const allDone    = entries.reduce((s,e)=>s+e.hrs,0);
+  const allMonths  = new Set(entries.map(e=>monthOf(e.date)));
+  const tgt        = allMonths.size * MONTH_TGT;
+  const diff       = allDone - tgt;           // positive = over, negative = under
+  const over       = diff > 0 && tgt > 0;
+  const ok         = tgt > 0 && Math.abs(diff) < 0.05;
+  const pct        = tgt > 0 ? Math.min(100,(allDone/tgt)*100) : 0;
 
   const num = $('ov-num'), sub = $('ov-sub'), pill = $('ov-pill'), bar = $('ov-bar');
-  if (!allKWs.size) {
+  if (!allMonths.size) {
     num.textContent = '—'; sub.textContent = 'Noch keine Einträge';
     pill.textContent = 'Kein Ziel'; pill.className = 'pill pill-amber';
     bar.style.cssText = 'width:0%';
-  } else if (over) {
-    num.textContent = '+' + (allDone-tgt).toFixed(1).replace('.',',');
-    sub.textContent = 'Stunden über Ziel';
-    pill.textContent = 'Überschritten'; pill.className = 'pill pill-green';
-    bar.style.cssText = 'width:100%;background:var(--green)';
   } else if (ok) {
     num.textContent = '0,0'; sub.textContent = 'ausgeglichen';
     pill.textContent = 'Ausgeglichen'; pill.className = 'pill pill-green';
     bar.style.cssText = 'width:100%;background:var(--green)';
+  } else if (over) {
+    num.textContent = '+' + diff.toFixed(1).replace('.',',');
+    sub.textContent = 'Stunden über Ziel';
+    pill.textContent = '+' + diff.toFixed(1).replace('.',',') + 'h'; pill.className = 'pill pill-green';
+    bar.style.cssText = 'width:100%;background:var(--green)';
   } else {
+    const rem = Math.abs(diff);
     num.textContent = rem.toFixed(1).replace('.',',');
-    sub.textContent = 'Stunden fehlen noch';
+    sub.textContent = 'Stunden fehlen noch (über alle Monate)';
     pill.textContent = rem.toFixed(1).replace('.',',') + 'h fehlen';
     pill.className = 'pill pill-red';
     bar.style.cssText = `width:${pct.toFixed(1)}%;background:${pct>65?'var(--amber)':'var(--red)'}`;
@@ -785,7 +787,7 @@ function render() {
 
   $('s-done').textContent = fh(allDone);
   $('s-tgt').textContent  = fh(tgt);
-  $('s-wks').textContent  = allKWs.size;
+  $('s-wks').textContent  = allMonths.size;
   $('s-ent').textContent  = entries.length;
 
 
