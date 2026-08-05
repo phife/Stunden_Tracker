@@ -450,6 +450,66 @@ select:focus { border-color: rgba(255,255,255,0.18); }
   font-family: 'DM Mono', monospace;
 }
 
+
+/* ── Month tiles ─────────────────────────────────────── */
+.month-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  margin-bottom: 1rem;
+  scrollbar-width: none;
+}
+.month-scroll::-webkit-scrollbar { display: none; }
+.month-tile {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 12px 14px;
+  min-width: 110px;
+  flex-shrink: 0;
+  cursor: default;
+  transition: border-color 0.15s;
+}
+.month-tile:hover { border-color: var(--border-med); }
+.month-tile.current { border-color: rgba(255,255,255,0.18); }
+.mt-name {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-faint);
+  margin-bottom: 6px;
+}
+.mt-hrs {
+  font-family: 'DM Mono', monospace;
+  font-size: 20px;
+  font-weight: 400;
+  color: var(--text);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+.mt-bar-bg {
+  height: 2px;
+  background: var(--surface3);
+  border-radius: 99px;
+  overflow: hidden;
+  margin-bottom: 5px;
+}
+.mt-bar-fill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease, background 0.3s;
+}
+.mt-status {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-faint);
+}
+.mt-status.ok  { color: var(--green); }
+.mt-status.red { color: var(--red); }
+
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row   { flex-wrap: wrap; }
@@ -501,6 +561,9 @@ select:focus { border-color: rgba(255,255,255,0.18); }
       </div>
     </div>
 
+
+    <!-- Month tiles -->
+    <div class="month-scroll" id="month-tiles"></div>
     <!-- PW -->
     <div class="pw-card" id="pw-card" style="display:none;">
       <div class="pw-title">Passwort für Bearbeiten</div>
@@ -724,6 +787,44 @@ function render() {
   $('s-tgt').textContent  = fh(tgt);
   $('s-wks').textContent  = allKWs.size;
   $('s-ent').textContent  = entries.length;
+
+
+  // ── Month tiles ──
+  const MONTH_TARGET = 53.846; // 1400 / 26
+  const monthMap = {};
+  entries.forEach(e => {
+    const mk = monthOf(e.date);
+    monthMap[mk] = (monthMap[mk] || 0) + e.hrs;
+  });
+  const monthKeys = Object.keys(monthMap).sort((a,b)=>b.localeCompare(a));
+  const nowKey = new Date().toISOString().slice(0,7);
+  const tilesEl = $('month-tiles');
+  tilesEl.innerHTML = '';
+  if (monthKeys.length) {
+    // ensure current month shown even if no entries yet
+    const allMonths = monthKeys.includes(nowKey) ? monthKeys : [nowKey, ...monthKeys];
+    allMonths.forEach(mk => {
+      const hrs = monthMap[mk] || 0;
+      const diff = hrs - MONTH_TARGET;
+      const pct  = Math.min(100, (hrs / MONTH_TARGET) * 100);
+      const over = diff > 0;
+      const [y,mo] = mk.split('-');
+      const mname  = new Date(+y, +mo-1, 1).toLocaleDateString('de-DE',{month:'short', year:'2-digit'});
+      const barCol = over ? 'var(--green)' : pct > 65 ? 'var(--amber)' : 'var(--red)';
+      const statusCls = over ? 'ok' : 'red';
+      const statusTxt = over
+        ? '+' + diff.toFixed(1).replace('.',',') + 'h'
+        : (MONTH_TARGET - hrs).toFixed(1).replace('.',',') + 'h fehlen';
+      const tile = document.createElement('div');
+      tile.className = 'month-tile' + (mk === nowKey ? ' current' : '');
+      tile.innerHTML = `
+        <div class="mt-name">${mname}</div>
+        <div class="mt-hrs">${hrs.toFixed(1).replace('.',',')}h</div>
+        <div class="mt-bar-bg"><div class="mt-bar-fill" style="width:${pct.toFixed(1)}%;background:${barCol};"></div></div>
+        <div class="mt-status ${statusCls}">${statusTxt}</div>`;
+      tilesEl.appendChild(tile);
+    });
+  }
 
   const vis = filtered();
   const kwMap = {};
