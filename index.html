@@ -510,6 +510,42 @@ select:focus { border-color: rgba(255,255,255,0.18); }
 .mt-status.ok  { color: var(--green); }
 .mt-status.red { color: var(--red); }
 
+
+/* ── Paid status on month tiles ─── */
+.mt-paid-badge {
+  font-size: 10px;
+  font-family: 'DM Mono', monospace;
+  color: var(--green);
+  letter-spacing: 0.04em;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.mt-paid-badge::before {
+  content: '';
+  display: inline-block;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: var(--green);
+}
+.mt-toggle {
+  margin-top: 6px;
+  width: 100%;
+  padding: 4px 0;
+  background: none;
+  border: 1px solid var(--border-med);
+  border-radius: 6px;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-faint);
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+.mt-toggle:hover { background: var(--green-bg); color: var(--green); border-color: rgba(61,191,128,0.3); }
+.mt-toggle.unpay:hover { background: var(--red-bg); color: var(--red); border-color: rgba(224,92,92,0.3); }
+.month-tile.paid { border-color: rgba(61,191,128,0.25); }
+
 @media (max-width: 480px) {
   .stats-grid { grid-template-columns: repeat(2, 1fr); }
   .form-row   { flex-wrap: wrap; }
@@ -615,7 +651,8 @@ const EDIT_PASSWORD = 'stunden2025';          // Passwort für den Edit-Modus
 // ════════════════════════════════════════════════════════════════
 
 const TARGET = 12.5;
-let entries  = [];
+let entries    = [];
+let paidMonths = [];
 let editMode = false;
 let openKWs  = {};
 let editId   = null;
@@ -652,7 +689,8 @@ async function load() {
     sync('err', 'Bin-ID fehlt — erst einen Eintrag speichern');
     $('loading').style.display = 'none';
     $('app').style.display = 'block';
-    entries = JSON.parse(localStorage.getItem('st_fb') || '[]');
+    const fb = JSON.parse(localStorage.getItem('st_fb') || '{}');
+    entries = fb.entries || []; paidMonths = fb.paidMonths || [];
     buildMonthFilter(); render(); return;
   }
   sync('busy', 'Lädt…');
@@ -660,12 +698,14 @@ async function load() {
     const json = await apiFetch(`https://api.jsonbin.io/v3/b/${BIN_ID}/latest`, {
       headers: { 'X-Master-Key': API_KEY }
     });
-    entries = json.record.entries || [];
-    localStorage.setItem('st_fb', JSON.stringify(entries));
+    entries    = json.record.entries    || [];
+    paidMonths = json.record.paidMonths || [];
+    localStorage.setItem('st_fb', JSON.stringify({entries, paidMonths}));
     sync('ok', 'Aktuell');
   } catch(e) {
     sync('err', 'Offline — zeige lokale Kopie');
-    entries = JSON.parse(localStorage.getItem('st_fb') || '[]');
+    const fb2 = JSON.parse(localStorage.getItem('st_fb') || '{}');
+    entries = fb2.entries || []; paidMonths = fb2.paidMonths || [];
   }
   $('loading').style.display = 'none';
   $('app').style.display = 'block';
@@ -675,14 +715,14 @@ async function load() {
 async function persist() {
   if (saving) return; saving = true;
   sync('busy', 'Speichert…');
-  localStorage.setItem('st_fb', JSON.stringify(entries));
+  localStorage.setItem('st_fb', JSON.stringify({entries, paidMonths}));
 
   if (BIN_ID === 'DEINE_BIN_ID_HIER') {
     try {
       const json = await apiFetch('https://api.jsonbin.io/v3/b', {
         method: 'POST',
         headers: { 'Content-Type':'application/json','X-Master-Key':API_KEY,'X-Bin-Name':'Stunden Tracker' },
-        body: JSON.stringify({ entries })
+        body: JSON.stringify({ entries, paidMonths })
       });
       const id = json.metadata?.id;
       if (id) {
@@ -705,7 +745,7 @@ async function persist() {
     await apiFetch(`https://api.jsonbin.io/v3/b/${BIN_ID}`, {
       method: 'PUT',
       headers: { 'Content-Type':'application/json','X-Master-Key':API_KEY },
-      body: JSON.stringify({ entries })
+      body: JSON.stringify({ entries, paidMonths })
     });
     sync('ok', 'Gespeichert · ' + new Date().toLocaleTimeString('de-DE',{hour:'2-digit',minute:'2-digit'}));
   } catch(e) {
@@ -752,19 +792,35 @@ function filtered() {
   return mf ? entries.filter(e=>monthOf(e.date)===mf) : entries;
 }
 
+function togglePaid(mk) {
+  if (paidMonths.includes(mk)) {
+    paidMonths = paidMonths.filter(m => m !== mk);
+  } else {
+    paidMonths = [...paidMonths, mk];
+  }
+  persist(); render();
+}
+
 function render() {
   const MONTH_TGT  = 53.846; // 1400 / 26
   const allDone    = entries.reduce((s,e)=>s+e.hrs,0);
+  const paidSet    = new Set(paidMonths);
+  // Overview: only paid months count toward target
+  const paidDone   = entries.filter(e=>paidSet.has(monthOf(e.date))).reduce((s,e)=>s+e.hrs,0);
   const allMonths  = new Set(entries.map(e=>monthOf(e.date)));
-  const tgt        = allMonths.size * MONTH_TGT;
-  const diff       = allDone - tgt;           // positive = over, negative = under
+  const tgt        = paidMonths.length * MONTH_TGT;
+  const diff       = paidDone - tgt;           // positive = over, negative = under
   const over       = diff > 0 && tgt > 0;
   const ok         = tgt > 0 && Math.abs(diff) < 0.05;
-  const pct        = tgt > 0 ? Math.min(100,(allDone/tgt)*100) : 0;
+  const pct        = tgt > 0 ? Math.min(100,(paidDone/tgt)*100) : 0;
 
   const num = $('ov-num'), sub = $('ov-sub'), pill = $('ov-pill'), bar = $('ov-bar');
   if (!allMonths.size) {
     num.textContent = '—'; sub.textContent = 'Noch keine Einträge';
+    pill.textContent = 'Kein Ziel'; pill.className = 'pill pill-amber';
+    bar.style.cssText = 'width:0%';
+  } else if (!paidMonths.length) {
+    num.textContent = '—'; sub.textContent = 'Noch kein Monat als bezahlt markiert';
     pill.textContent = 'Kein Ziel'; pill.className = 'pill pill-amber';
     bar.style.cssText = 'width:0%';
   } else if (ok) {
@@ -785,9 +841,9 @@ function render() {
     bar.style.cssText = `width:${pct.toFixed(1)}%;background:${pct>65?'var(--amber)':'var(--red)'}`;
   }
 
-  $('s-done').textContent = fh(allDone);
+  $('s-done').textContent = fh(paidDone);
   $('s-tgt').textContent  = fh(tgt);
-  $('s-wks').textContent  = allMonths.size;
+  $('s-wks').textContent  = paidMonths.length;
   $('s-ent').textContent  = entries.length;
 
 
@@ -817,13 +873,20 @@ function render() {
       const statusTxt = over
         ? '+' + diff.toFixed(1).replace('.',',') + 'h'
         : (MONTH_TARGET - hrs).toFixed(1).replace('.',',') + 'h fehlen';
+      const isPaid = paidMonths.includes(mk);
       const tile = document.createElement('div');
-      tile.className = 'month-tile' + (mk === nowKey ? ' current' : '');
+      tile.className = 'month-tile' + (mk === nowKey ? ' current' : '') + (isPaid ? ' paid' : '');
+      const toggleBtn = editMode
+        ? `<button class="mt-toggle${isPaid ? ' unpay' : ''}" onclick="togglePaid('${mk}')">${isPaid ? '✕ Bezahlung entfernen' : '✓ Als bezahlt markieren'}</button>`
+        : '';
+      const paidBadge = isPaid ? `<div class="mt-paid-badge">bezahlt</div>` : '';
       tile.innerHTML = `
         <div class="mt-name">${mname}</div>
         <div class="mt-hrs">${hrs.toFixed(1).replace('.',',')}h</div>
         <div class="mt-bar-bg"><div class="mt-bar-fill" style="width:${pct.toFixed(1)}%;background:${barCol};"></div></div>
-        <div class="mt-status ${statusCls}">${statusTxt}</div>`;
+        <div class="mt-status ${statusCls}">${statusTxt}</div>
+        ${paidBadge}
+        ${toggleBtn}`;
       tilesEl.appendChild(tile);
     });
   }
