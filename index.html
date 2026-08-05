@@ -809,10 +809,10 @@ function render() {
   const paidDone   = entries.filter(e=>paidSet.has(monthOf(e.date))).reduce((s,e)=>s+e.hrs,0);
   const allMonths  = new Set(entries.map(e=>monthOf(e.date)));
   const tgt        = paidMonths.length * MONTH_TGT;
-  const diff       = paidDone - tgt;           // positive = over, negative = under
+  const diff       = allDone - tgt;             // all hours vs paid months target
   const over       = diff > 0 && tgt > 0;
   const ok         = tgt > 0 && Math.abs(diff) < 0.05;
-  const pct        = tgt > 0 ? Math.min(100,(paidDone/tgt)*100) : 0;
+  const pct        = tgt > 0 ? Math.min(100,(allDone/tgt)*100) : 0;
 
   const num = $('ov-num'), sub = $('ov-sub'), pill = $('ov-pill'), bar = $('ov-bar');
   if (!allMonths.size) {
@@ -841,7 +841,7 @@ function render() {
     bar.style.cssText = `width:${pct.toFixed(1)}%;background:${pct>65?'var(--amber)':'var(--red)'}`;
   }
 
-  $('s-done').textContent = fh(paidDone);
+  $('s-done').textContent = fh(allDone);
   $('s-tgt').textContent  = fh(tgt);
   $('s-wks').textContent  = paidMonths.length;
   $('s-ent').textContent  = entries.length;
@@ -877,7 +877,7 @@ function render() {
       const tile = document.createElement('div');
       tile.className = 'month-tile' + (mk === nowKey ? ' current' : '') + (isPaid ? ' paid' : '');
       const toggleBtn = editMode
-        ? `<button class="mt-toggle${isPaid ? ' unpay' : ''}" onclick="togglePaid('${mk}')">${isPaid ? '✕ Bezahlung entfernen' : '✓ Als bezahlt markieren'}</button>`
+        ? `<button class="mt-toggle${isPaid ? ' unpay' : ''}" onclick="togglePaid('${mk}')">${isPaid ? '✕ Bezahlt' : '✓ Bezahlt'}</button>`
         : '';
       const paidBadge = isPaid ? `<div class="mt-paid-badge">bezahlt</div>` : '';
       tile.innerHTML = `
